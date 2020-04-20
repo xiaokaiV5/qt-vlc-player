@@ -23,17 +23,37 @@ Qt_vlc::Qt_vlc(QWidget *parent)
 
 	this->playerWId = ui->wiget_player_window->winId();
 
-	menuAction_openFileAction = new QAction(QStringLiteral("打开文件"),this);
-	menuAction_hideTvStationList = new QAction(QStringLiteral("隐藏点播栏"),this);
+	/* Set the background picture. */
+	this->setBackgroundPicture(":/Qt_vlc/Resources/photo/verticalGirl2.jpg");
+
+	/* Set menu bar */
+	menuAction_openFileAction = new QAction(QStringLiteral("打开视频文件"), this);
+	menuAction_hideTvStationList = new QAction(QStringLiteral("隐藏点播栏"), this);
+	menuBackgroundPictureChange = new QAction(QStringLiteral("更换背景图片"), this);
 	ui->menu_operation->addAction(menuAction_openFileAction);
 	ui->menu_operation->addAction(menuAction_hideTvStationList);
+	ui->menu_operation->addAction(menuBackgroundPictureChange);
 	connect(menuAction_openFileAction, &QAction::triggered, this, &Qt_vlc::openLocalVadio);
 	connect(menuAction_hideTvStationList, &QAction::triggered, this, &Qt_vlc::hideTvStationList);
+	connect(menuBackgroundPictureChange, &QAction::triggered, this, &Qt_vlc::ChangeBackgroundPicture);
 }
 
 Qt_vlc::~Qt_vlc()
 {
 	this->release();
+}
+
+void Qt_vlc::setBackgroundPicture(const QString file)
+{
+	this->setAutoFillBackground(true);
+	QPalette palette;
+	QPixmap pixmap(file);
+	palette.setBrush(backgroundRole(), QBrush(pixmap));
+	/*The image size should be the same size as the widget. If the image size is small, it will be repeated.*/
+	this->setPalette(palette);
+	/* Set widget transparency */
+	ui->listWidget_TvStation->setStyleSheet("background-color:transparent");
+	return;
 }
 
 void Qt_vlc::playerInit()
@@ -65,12 +85,17 @@ int Qt_vlc::playNetUrlTv(QString videoUrlPath)
 	/* Bind the playback window*/
 	bindPlayerWindow(this->playerWId, k_player);
 
+	if (!ui->playerSlider->isHidden())
+		ui->playerSlider->hide();
+	
+
 	return libvlc_media_player_play(k_player);
 }
 
 /* Online video resources. */
 int Qt_vlc::playNetUrlVideo(QString videoUrlPath)
 {
+	
 	k_instance = libvlc_new(0, nullptr);
 	k_media = libvlc_media_new_location(k_instance, videoUrlPath.toLatin1().data());
 	k_player = libvlc_media_player_new_from_media(k_media);
@@ -90,6 +115,9 @@ int Qt_vlc::playLocalVideo(QString videoPath)
 	k_eventManager = libvlc_media_player_event_manager(k_player);
 	/* Bind the playback window*/
 	bindPlayerWindow(this->playerWId, k_player);
+
+	if (ui->playerSlider->isHidden())
+		ui->playerSlider->hide();
 
 	return libvlc_media_player_play(k_player);
 }
@@ -156,7 +184,7 @@ static void handleEvents(const libvlc_event_t *event, void *userData)
 	Qt_vlc *player = static_cast<Qt_vlc *>(userData);
 	switch (event->type)
 	{
-	// Player status changed.
+		// Player status changed.
 	case libvlc_MediaPlayerOpening:
 	case libvlc_MediaPlayerBuffering:
 		break;
@@ -176,19 +204,19 @@ static void handleEvents(const libvlc_event_t *event, void *userData)
 		emit player->stateChanged(Qt_vlc::Error);
 		break;
 	}
-	// 时长改变
+											 // 时长改变
 	case libvlc_MediaPlayerLengthChanged: {
 		qint64 dur = event->u.media_player_length_changed.new_length;
 		emit player->durationChanged(dur);
 		break;
 	}
-	// 播放时间改变
+										  // 播放时间改变
 	case libvlc_MediaPlayerTimeChanged: {
 		qint64 time = event->u.media_player_time_changed.new_time;
 		emit player->timeChanged(time);
 		break;
 	}
-	// 播放位置改变
+										// 播放位置改变
 	case libvlc_MediaPlayerPositionChanged: {
 		float pos = event->u.media_player_position_changed.new_position;
 		emit player->positionChanged(pos);
@@ -219,13 +247,15 @@ void Qt_vlc::on_listWidget_TvStation_itemDoubleClicked(QListWidgetItem *item)
 	}
 }
 
-
 /* Adjust the playback progress by dragging the slider. */
-void Qt_vlc::on_playerSlider_sliderReleased()
+void Qt_vlc::on_playerSlider_valueChanged(int value)
 {
-	qDebug() << "player time change, wait to code" << endl;
+	qDebug() << "player time change." << endl;
+	int pos = ui->playerSlider->sliderPosition();
+	seek(pos);
 	return;
 }
+
 
 void Qt_vlc::openLocalVadio()
 {
@@ -244,9 +274,25 @@ void Qt_vlc::hideTvStationList()
 {
 	if (!ui->listWidget_TvStation->isHidden()) {
 		ui->listWidget_TvStation->hide();
+		this->menuAction_hideTvStationList->setText(QStringLiteral("显示点播栏"));
 	}
 	else {
 		ui->listWidget_TvStation->show();
+		this->menuAction_hideTvStationList->setText(QStringLiteral("隐藏点播栏"));
+	}
+	return;
+}
+
+
+void Qt_vlc::ChangeBackgroundPicture()
+{
+	QString file = QFileDialog::getOpenFileName(this,
+		QStringLiteral("打开文件"),
+		QDir::currentPath()+"/Resources/photo",
+		QStringLiteral("Image Files(*.jpg *.png)"));
+	if (!file.isEmpty()) {
+		file = QDir::toNativeSeparators(file);
+		this->setBackgroundPicture(file);
 	}
 	return;
 }
@@ -264,6 +310,13 @@ void Qt_vlc::setVolume(int vol)
 
 void Qt_vlc::seek(int pos)
 {
+	libvlc_media_t *curMedia = libvlc_media_player_get_media(k_player);
+	if (nullptr == curMedia)
+		return;
+
+	libvlc_time_t duration = libvlc_media_get_duration(curMedia);
+	float ms = float(pos) / 100 * float(duration);
+	libvlc_media_player_set_time(k_player, libvlc_time_t(ms));
 }
 
 void Qt_vlc::play()
@@ -280,3 +333,5 @@ void Qt_vlc::stop()
 {
 	libvlc_media_player_stop(k_player);
 }
+
+

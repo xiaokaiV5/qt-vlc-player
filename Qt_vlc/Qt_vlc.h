@@ -38,6 +38,8 @@ public:
 
 	~Qt_vlc();
 
+	void setBackgroundPicture(const QString file);
+
 	void playerInit();
 
 	void bindPlayerWindow(const WId window, libvlc_media_player_t * player);
@@ -64,11 +66,12 @@ private slots:
 	/* 窗口相关操作 */
 	void on_listWidget_TvStation_itemDoubleClicked(QListWidgetItem *item);
 
-    void on_playerSlider_sliderReleased(); 
-	
 	void openLocalVadio();
 
 	void hideTvStationList();
+	void ChangeBackgroundPicture();
+	void on_playerSlider_valueChanged(int value);
+
 
 	/* 播放器相关操作 */
 	// 打开文件
@@ -84,7 +87,6 @@ private slots:
 	// 停止
 	void stop();
     
-
 private:
 	Ui::Qt_vlcClass *ui;
 
@@ -99,6 +101,7 @@ private:
 
 	QAction *menuAction_openFileAction;
 	QAction *menuAction_hideTvStationList;
+	QAction *menuBackgroundPictureChange;
 };
 
 static void handleEvents(const libvlc_event_t *event, void *userData);

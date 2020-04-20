@@ -1,7 +1,8 @@
 #include "Qt_vlc.h"
-#include <QtWidgets/QApplication>
+#include <QApplication>
 #include <QWidget>
 #include <iostream>
+#include <QFile>
 
 using namespace std;
 
@@ -14,21 +15,29 @@ typedef SSIZE_T ssize_t;
 #include <vlc/vlc.h>
 #include "Qt_vlc.h"
 
+/* load qss file. */
+class CommonHelper
+{
+public:
+	static void setStyle(const QString &style) {
+		QFile qss(style);
+		qss.open(QFile::ReadOnly);
+		qApp->setStyleSheet(qss.readAll());
+		qss.close();
+	}
+};
 
-//void waitPlaying(libvlc_media_player_t *mp)
-//{
-//	libvlc_state_t state;
-//	do {
-//		state = libvlc_media_player_get_state(mp);
-//	} while (state != libvlc_Error && state != libvlc_Ended);
-//}
 
 int main(int argc, char *argv[])
 {
-	QString localMediaPath  = "F:\\baozang\\xuexiziliaoC_C++\\06_QT\\01\\4.mov";
-	QString rtsMediaPath = "http://ivi.bupt.edu.cn/hls/cctv6hd.m3u8";
+	QString localMediaPath  = "G:\\QT_project\\Qt_vlc\\Qt_vlc\\eg.mkv";
 	
 	QApplication app(argc, argv);
+	// ¼ÓÔØQSSÑùÊ½
+	CommonHelper::setStyle("styleBlack.qss");
+
+
+
 	Qt_vlc myPlayer;
 	//myPlayer.playNetUrlTv("http://ivi.bupt.edu.cn/hls/cctv6hd.m3u8");
 	myPlayer.playLocalVideo(localMediaPath);
